@@ -1,57 +1,46 @@
 var net = require('net');
 
-var control = new net.Socket();
+var params = {
+    c: {
+        host: null,
+        port: 25560
+    },
+    f: {
+        host: null,
+        port: 25561
+    },
+    t: {
+        host: null,
+        port: 25565
+    }
+}
 
-var linklist = new Array();
+var connList = new Array();
 
-control.connect(25560);
-
-var find = port => element => element.localPort === port;
+var control = net.createConnection(params.c.port, params.c.host);
 
 control.on('data', datas => {
-    datas = JSON.parse('[' + (datas + '').substr(0,datas.length - 1) + ']');
+    datas = JSON.parse('[' + (datas + '').substr(0, datas.length - 1) + ']');
     for (var data of datas) {
         switch (data.status) {
             case 0:
-                for (var i = linklist.length; i < 10; i++) {
-                    var link = new net.Socket();
-                    link.connect(25561);
-                    linklist.push(link);
-                }
-                break;
-            case 1:
-                var to = new net.Socket();
-                var from = linklist.find(find(data.port));
-                to.cache = new Array();
-                from.cache = new Array();
-                to.connect(25565, () => {
-                    console.log(from.remotePort + '->' + from.localPort);
-                    console.log(to.localPort + '->' + to.remotePort + ' connected');
-                    control.write(JSON.stringify({
-                        status: 1,
-                        port: data.port
-                    })+ ',');
-                });
-                to.on('data', dt => {
-                    if (from.writable) {
-                        while (from.cache.length) from.write(from.cache.shift());
-                        console.log(to.remotePort + '->' + to.localPort + '->' + from.localPort + '->' + from.remotePort);
-                        console.log(dt + '\n\n');
-                        from.write(dt);
-                    }
-                    else from.cache.push(dt);
-                });
-                from.on('data', dt => {
-                    if (to.writable) {
-                        while (to.cache.length) to.write(to.shift());
-                        console.log(from.remotePort + '->' + from.localPort + '->' + to.localPort + '->' + to.remotePort);
-                        console.log(dt + '\n\n');
-                        to.write(dt);
-                    }
-                    else to.cache.push(dt);
-                });
+                for (var i = 0; i < data.amount; i++) createConnection();
                 break;
         }
     }
 });
 
+var createConnection = () => {
+    var from = net.createConnection(params.f.port, params.f.host);
+    var to = net.createConnection(params.t.port, params.t.host);
+    from.on('data', data => to.write(data));
+    from.on('end', () => to.connect(params.f.port, params.f.host));
+    from.on('error', () => to.connect(params.f.port, params.f.host));
+    to.on('data', data => from.write(data));
+    to.on('end', () => to.connect(params.t.port, params.t.host));
+    to.on('error', () => to.connect(params.t.port, params.t.host));
+    connList.push({
+        from: from,
+        to: to
+    });
+};
