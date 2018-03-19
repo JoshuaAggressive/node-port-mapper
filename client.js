@@ -1,19 +1,5 @@
 var net = require('net');
-
-var params = {
-    c: {
-        host: null,
-        port: 25560
-    },
-    f: {
-        host: null,
-        port: 25561
-    },
-    t: {
-        host: null,
-        port: 25565
-    }
-}
+var params = require('./config/client-config')
 
 var connList = new Array();
 
